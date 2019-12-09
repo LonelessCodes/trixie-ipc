@@ -1,7 +1,7 @@
 {
   "name": "trixie-ipc",
-  "version": "0.0.1",
-  "description": "Q package used by TrixieBot to communicate with child processes and between independant processes.",
+  "version": "1.0.0",
+  "description": "A package used by TrixieBot to communicate with child processes and between independant processes.",
   "homepage": "https://trixie.loneless.art",
   "author": {
     "name": "Loneless",
@@ -30,5 +30,11 @@
   "keywords": [
     "ipc"
   ],
-  "main": "./index.js"
+  "main": "./index.js",
+  "devDependencies": {
+    "@types/node": "^12.12.14",
+    "@types/node-ipc": "^9.1.2",
+    "eslint": "^6.7.2",
+    "standard-version": "^4.4.0"
+  }
 }
