@@ -15,11 +15,13 @@
  */
 
 const cpc = require("./src/cpc");
-const IPCAdapter = require("./src/IPCAdapter");
+const IPCClientAdapter = require("./src/IPCClientAdapter");
+const IPCServerAdapter = require("./src/IPCServerAdapter");
 const respawn = require("./src/respawn");
 
 module.exports = {
     cpc,
-    IPCAdapter,
+    IPCClientAdapter,
+    IPCServerAdapter,
     respawn,
 };
