@@ -1,0 +1,34 @@
+{
+  "name": "trixie-ipc",
+  "version": "0.0.1",
+  "description": "Q package used by TrixieBot to communicate with child processes and between independant processes.",
+  "homepage": "https://trixie.loneless.art",
+  "author": {
+    "name": "Loneless",
+    "url": "https://loneless.art"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LonelessCodes/trixie-ipc.git"
+  },
+  "dependencies": {
+    "node-ipc": "^9.1.1",
+    "ps-tree": "^1.2.0",
+    "uuid": "^3.3.3"
+  },
+  "engines": {
+    "node": ">= 10.16.0",
+    "npm": ">= 6.9.0"
+  },
+  "scripts": {
+    "lint": "eslint src *.js",
+    "releasemajor": "standard-version --release-as major",
+    "releaseminor": "standard-version --release-as minor",
+    "releasepatch": "standard-version --release-as patch"
+  },
+  "license": "GPL-3.0",
+  "keywords": [
+    "ipc"
+  ],
+  "main": "./index.js"
+}
