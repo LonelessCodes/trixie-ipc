@@ -14,10 +14,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const cpc = require("./src/cpc");
-const IPCClientAdapter = require("./src/IPCClientAdapter");
-const IPCServerAdapter = require("./src/IPCServerAdapter");
-const respawn = require("./src/respawn");
+const cpc = require("./cpc");
+const IPCClientAdapter = require("./IPCClientAdapter");
+const IPCServerAdapter = require("./IPCServerAdapter");
+const respawn = require("./respawn");
 
 module.exports = {
     cpc,
