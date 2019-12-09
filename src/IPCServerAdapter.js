@@ -25,7 +25,7 @@ const Server = require("node-ipc/dao/socketServer.js");
 * #send(data)
 */
 
-class IPCAdapter extends events.EventEmitter {
+class IPCServerAdapter extends events.EventEmitter {
     /**
      * Put a node-ipc server instance in a nice little wrapper to use with
      * trixie-ipc instance
@@ -99,4 +99,4 @@ class IPCAdapter extends events.EventEmitter {
     }
 }
 
-module.exports = IPCAdapter;
+module.exports = IPCServerAdapter;
