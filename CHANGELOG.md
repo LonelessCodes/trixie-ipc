@@ -2,5 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="1.1.0"></a>
+# 1.1.0 (2019-12-09)
+
+
+### Features
+
+* add IPCClientAdapter ([cfc129a](https://github.com/LonelessCodes/trixie-ipc/commit/cfc129a))
+
+
+
 <a name="1.0.0"></a>
 # 1.0.0 (2019-12-09)
