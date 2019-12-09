@@ -33,7 +33,7 @@ class IPCServerAdapter extends events.EventEmitter {
      * Usage:
      * ```
     const ipc = require("node-ipc");
-    const IPCServerAdapter = require("trixie-ipc/src/IPCServerAdapter");
+    const IPCServerAdapter = require("trixie-ipc/IPCServerAdapter");
     const cpc = require("./cpc");
 
     ipc.serve();

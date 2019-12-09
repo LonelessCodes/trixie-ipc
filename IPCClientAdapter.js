@@ -26,8 +26,8 @@ class IPCClientAdapter extends events.EventEmitter {
      * Usage:
      * ```
     const ipc = require("node-ipc");
-    const cpc = require("trixie-ipc/src/cpc");
-    const IPCClientAdapter = require("trixie-ipc/src/IPCClientAdapter");
+    const cpc = require("trixie-ipc/cpc");
+    const IPCClientAdapter = require("trixie-ipc/IPCClientAdapter");
 
     ipc.connectTo("server"); // syncronous anyways
 
