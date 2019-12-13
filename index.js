@@ -19,9 +19,7 @@ const IPCClientAdapter = require("./IPCClientAdapter");
 const IPCServerAdapter = require("./IPCServerAdapter");
 const respawn = require("./respawn");
 
-module.exports = {
-    cpc,
-    IPCClientAdapter,
-    IPCServerAdapter,
-    respawn,
-};
+module.exports = cpc;
+module.exports.IPCClientAdapter = IPCClientAdapter;
+module.exports.IPCServerAdapter = IPCServerAdapter;
+module.exports.respawn = respawn;

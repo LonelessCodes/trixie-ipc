@@ -68,6 +68,8 @@ class CPC extends events.EventEmitter {
                     this.child.send({ bus: busGotten, id, type: CPC.TYPE.ERROR, payload: response });
             }
         });
+
+        return this;
     }
 
     awaitAnswer(busRequest, payloadRequest, opts = {}) {
