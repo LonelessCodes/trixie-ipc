@@ -14,7 +14,7 @@
   "dependencies": {
     "node-ipc": "^9.1.1",
     "ps-tree": "^1.2.0",
-    "uuid": "^3.3.3"
+    "uuid": "^7.0.3"
   },
   "engines": {
     "node": ">= 10.16.0",
@@ -32,9 +32,9 @@
   ],
   "main": "./index.js",
   "devDependencies": {
-    "@types/node": "^12.12.14",
+    "@types/node": "^13.11.0",
     "@types/node-ipc": "^9.1.2",
-    "eslint": "^6.7.2",
+    "eslint": "^6.8.0",
     "standard-version": "^4.4.0"
   }
 }
