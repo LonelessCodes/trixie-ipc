@@ -2,7 +2,7 @@
   "name": "trixie-ipc",
   "version": "1.3.0",
   "description": "A package used by TrixieBot to communicate with child processes and between independant processes.",
-  "homepage": "https://trixie.loneless.art",
+  "homepage": "https://trixiebot.com",
   "author": {
     "name": "Loneless",
     "url": "https://loneless.art"
