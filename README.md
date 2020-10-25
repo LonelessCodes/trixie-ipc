@@ -1,6 +1,6 @@
 # TrixieBot IPC Module
 
-This is a package used by TrixieBot to communicate with child processes and between independant processes.
+This is a package used by TrixieBot to provide translation layers for a unified, promise-based interface for communicating with child processes and between independant processes.
 
 ### Editing
 
