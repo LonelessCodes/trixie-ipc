@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Christian Schäfer / Loneless
+ * Copyright (C) 2020 Christian Schäfer / Loneless
  *
  * TrixieBot is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,46 +14,42 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const uuid = require("uuid");
-const events = require("events");
+import uuid from "uuid";
+import { ChildProcess } from "child_process";
+import TranslationLayer from "./TranslationLayer";
+import { MSG_TYPE, RawMessage, timeout, AwaitAnswerOptions } from "./util";
 
-/**
- * @param {number} ms Delay in milliseconds
- * @returns {Promise<void>}
- */
-function timeout(ms) {
-    return new Promise(res => setTimeout(res, ms));
+interface ChildProcessRawMessage extends RawMessage {
+    id: string;
 }
 
-class CPC extends events.EventEmitter {
-    constructor(child) {
+export default class ChildProcessLayer extends TranslationLayer {
+    constructor(public child: ChildProcess) {
         super();
 
-        this.setMaxListeners(0);
-
-        this.child = child;
         this.child.setMaxListeners(0);
-
-        this.child.on("message", this.onMessage.bind(this));
+        this.child.on("message", this._onMessage.bind(this));
     }
 
-    onMessage({ bus, payload }) {
-        this.emit(bus, payload);
+    private _onMessage(msg: ChildProcessRawMessage): void {
+        this.emit(msg.bus, msg.payload);
     }
 
-    send(bus, payload) {
-        if (this.child.send)
-            this.child.send({ bus, type: CPC.TYPE.RAW, payload });
+    send(bus: string, payload: unknown): void {
+        if (this.child.killed) {
+            return;
+        }
+
+        this.child.send({ bus, type: MSG_TYPE.RAW, payload });
     }
 
-    answer(busWanted, handler) {
-        this.child.on("message", async ({ bus: busGotten, id, payload }) => {
-            if (busWanted !== busGotten) return;
+    answer(bus_wanted: string, handler: (payload: unknown) => (Promise<any> | any)): this {
+        this.child.on("message", async ({ bus: bus_gotten, id, payload }: ChildProcessRawMessage) => {
+            if (bus_wanted !== bus_gotten) return;
 
             try {
                 const response = await handler(payload);
-                if (this.child.send)
-                    this.child.send({ bus: busGotten, id, type: CPC.TYPE.RAW, payload: response });
+                this.child.send({ bus: bus_gotten, id, type: MSG_TYPE.RAW, payload: response });
             } catch (err) {
                 let response = err;
                 if (err instanceof Error) {
@@ -64,20 +60,21 @@ class CPC extends events.EventEmitter {
                         stack: err.stack,
                     };
                 }
-                if (this.child.send)
-                    this.child.send({ bus: busGotten, id, type: CPC.TYPE.ERROR, payload: response });
+                this.child.send({ bus: bus_gotten, id, type: MSG_TYPE.ERROR, payload: response });
             }
         });
 
         return this;
     }
 
-    awaitAnswer(busRequest, payloadRequest, opts = {}) {
+    awaitAnswer(bus_request: string, payload_request: unknown, opts: AwaitAnswerOptions = {}): Promise<unknown> {
         const p = new Promise((resolve, reject) => {
             const idRequest = uuid.v1();
 
             const removeHandlers = () => {
+                // eslint-disable-next-line @typescript-eslint/no-use-before-define
                 this.child.removeListener("exit", exitHandler);
+                // eslint-disable-next-line @typescript-eslint/no-use-before-define
                 this.child.removeListener("message", handler);
             };
             const exitHandler = () => {
@@ -86,17 +83,17 @@ class CPC extends events.EventEmitter {
             };
             const handler = ({ bus: busGotten, id: idGotten, type: typeGotten, payload: payloadGotten }) => {
                 if (idRequest !== idGotten) return;
-                if (busRequest !== busGotten) return;
+                if (bus_request !== busGotten) return;
 
                 removeHandlers();
                 switch (typeGotten) {
-                    case CPC.TYPE.ERROR: {
+                    case MSG_TYPE.ERROR: {
                         if (payloadGotten.isError) {
                             return reject(Object.assign(new Error(), payloadGotten));
                         }
                         return reject(payloadGotten);
                     }
-                    case CPC.TYPE.RAW: {
+                    case MSG_TYPE.RAW: {
                         return resolve(payloadGotten);
                     }
                 }
@@ -104,8 +101,7 @@ class CPC extends events.EventEmitter {
             this.child.on("exit", exitHandler);
             this.child.on("message", handler);
 
-            if (this.child.send)
-                this.child.send({ bus: busRequest, id: idRequest, type: CPC.TYPE.RAW, payload: payloadRequest });
+            this.child.send({ bus: bus_request, id: idRequest, type: MSG_TYPE.RAW, payload: payload_request });
         });
         if (opts.timeout) {
             return Promise.race([
@@ -118,14 +114,8 @@ class CPC extends events.EventEmitter {
         return p;
     }
 
-    destroy() {
+    destroy(): void {
         this.removeAllListeners();
         this.child.removeAllListeners();
     }
 }
-CPC.TYPE = Object.freeze({
-    RAW: 0,
-    ERROR: 1,
-});
-
-module.exports = child => new CPC(child);

@@ -257,4 +257,4 @@ function respawn(command, opts) {
     return new Monitor(command, opts || {});
 }
 
-module.exports = respawn;
+module.exports.default = respawn;

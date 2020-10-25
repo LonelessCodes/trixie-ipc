@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Christian Schäfer / Loneless
+ * Copyright (C) 2020 Christian Schäfer / Loneless
  *
  * TrixieBot is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,12 +14,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const cpc = require("./cpc");
-const IPCClientAdapter = require("./IPCClientAdapter");
-const IPCServerAdapter = require("./IPCServerAdapter");
-const respawn = require("./respawn");
+import { EventEmitter } from "events";
+import { AwaitAnswerOptions } from "./util";
 
-module.exports = cpc;
-module.exports.IPCClientAdapter = IPCClientAdapter;
-module.exports.IPCServerAdapter = IPCServerAdapter;
-module.exports.respawn = respawn;
+export default abstract class TranslationLayer extends EventEmitter {
+    public abstract send(bus: string, payload: unknown): void;
+    public abstract answer(bus: string, handler: (payload: unknown) => (Promise<any> | any)): this;
+    public abstract awaitAnswer(bus: string, payload: unknown, opts?: AwaitAnswerOptions): Promise<unknown>;
+
+    destroy(): void {
+        this.removeAllListeners();
+    }
+}
