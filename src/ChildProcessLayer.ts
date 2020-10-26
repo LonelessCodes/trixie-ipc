@@ -34,7 +34,7 @@ export default class ChildProcessLayer extends TranslationLayer {
         this.emit(msg.bus, msg.payload);
     }
 
-    send(bus: string, payload: unknown): void {
+    send(bus: string, payload?: unknown): void {
         if (this.child.killed) {
             return;
         }
@@ -66,7 +66,7 @@ export default class ChildProcessLayer extends TranslationLayer {
         return this;
     }
 
-    awaitAnswer(bus_request: string, payload_request: unknown, opts: AwaitAnswerOptions = {}): Promise<unknown> {
+    awaitAnswer(bus_request: string, payload_request?: unknown, opts: AwaitAnswerOptions = {}): Promise<unknown> {
         const p = new Promise((resolve, reject) => {
             const idRequest = uuid.v1();
 

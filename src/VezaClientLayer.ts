@@ -30,7 +30,7 @@ export default class VezaClientLayer extends TranslationLayer {
         this.emit(message.data.bus, message.data.payload, message.id, client);
     }
 
-    send(bus: string, payload: unknown): void {
+    send(bus: string, payload?: unknown): void {
         for (const [, server] of this.client.servers.entries())
             server.send({ bus, type: MSG_TYPE.RAW, payload }, { receptive: false }).catch(() => { /* Do nothing */ });
     }
@@ -61,7 +61,7 @@ export default class VezaClientLayer extends TranslationLayer {
         return this;
     }
 
-    async awaitAnswer(bus_request: string, payload_request: unknown, { timeout, filter }: { timeout?: number, filter?: RegExp | string } = {}): Promise<unknown> {
+    async awaitAnswer(bus_request: string, payload_request?: unknown, { timeout, filter }: { timeout?: number, filter?: RegExp | string } = {}): Promise<unknown> {
         const test = filter
             ? typeof filter === "string"
                 ? (name: string) => name === filter
