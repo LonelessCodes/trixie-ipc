@@ -14,6 +14,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { Serializable } from "child_process";
+
 export enum MSG_TYPE {
     RAW,
     ERROR
@@ -36,4 +38,13 @@ export interface RawMessage {
 
 export interface AwaitAnswerOptions {
     timeout?: number;
+}
+
+export interface ChildEndpoint {
+    setMaxListeners(listeners: number): this;
+    removeAllListeners(event?: string): this;
+    on(event: string, listener: (...args: any[]) => void): this;
+    off(event: string, listener: (...args: any[]) => void): this;
+    send(message: Serializable): any;
+    killed?: boolean;
 }

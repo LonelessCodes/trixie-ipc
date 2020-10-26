@@ -15,16 +15,15 @@
  */
 
 import uuid from "uuid";
-import { ChildProcess } from "child_process";
 import TranslationLayer from "./TranslationLayer";
-import { MSG_TYPE, RawMessage, timeout, AwaitAnswerOptions } from "./util";
+import { MSG_TYPE, RawMessage, timeout, AwaitAnswerOptions, ChildEndpoint } from "./util";
 
 interface ChildProcessRawMessage extends RawMessage {
     id: string;
 }
 
 export default class ChildProcessLayer extends TranslationLayer {
-    constructor(public child: ChildProcess) {
+    constructor(public child: ChildEndpoint) {
         super();
 
         this.child.setMaxListeners(0);
@@ -73,9 +72,9 @@ export default class ChildProcessLayer extends TranslationLayer {
 
             const removeHandlers = () => {
                 // eslint-disable-next-line @typescript-eslint/no-use-before-define
-                this.child.removeListener("exit", exitHandler);
+                this.child.off("exit", exitHandler);
                 // eslint-disable-next-line @typescript-eslint/no-use-before-define
-                this.child.removeListener("message", handler);
+                this.child.off("message", handler);
             };
             const exitHandler = () => {
                 removeHandlers();

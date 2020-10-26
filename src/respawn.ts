@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Christian Schäfer / Loneless
+ * Copyright (C) 2018-2020 Christian Schäfer / Loneless
  *
  * TrixieBot is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,18 +14,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const events = require("events");
-const { fork, exec, spawn } = require("child_process");
-const ps = require("ps-tree");
-const os = require("os");
+import { EventEmitter } from "events";
+import { fork, exec, spawn, ChildProcess, ForkOptions, SpawnOptions, StdioOptions, Serializable } from "child_process";
+import ps from "ps-tree";
+import { platform } from "os";
+import { Writable } from "stream";
+import { ChildEndpoint } from "./util";
 
-function kill(pid, sig) {
-    if (os.platform() === "win32") {
+function kill(pid: number, sig?: string | number) {
+    if (platform() === "win32") {
         exec("taskkill /pid " + pid + " /T /F");
         return;
     }
-    ps(pid, (_, pids) => {
-        pids = (pids || []).map(item => parseInt(item.PID, 10));
+    ps(pid, (_, pids_s) => {
+        const pids = (pids_s || []).map(item => parseInt(item.PID, 10));
 
         pids.push(pid);
 
@@ -39,51 +41,88 @@ function kill(pid, sig) {
     });
 }
 
-function defaultSleep(sleep) {
-    sleep = Array.isArray(sleep) ? sleep : [sleep || 1000];
-    return function getSleep(restarts) {
-        return sleep[restarts - 1] || sleep[sleep.length - 1];
+function defaultSleep(sleep?: number | number[]) {
+    const arr: number[] = Array.isArray(sleep) ? sleep : [sleep || 1000];
+    return function getSleep(restarts: number): number {
+        return arr[restarts - 1] || arr[arr.length - 1];
     };
 }
 
-class Monitor extends events.EventEmitter {
-    constructor(command, opts) {
+enum STATUS {
+    STOPPED,
+    STOPPING,
+    RUNNING,
+    SLEEPING,
+    CRASHED,
+}
+
+type Options = ForkOptions | SpawnOptions;
+type MonitorOptions = Options & {
+    name?: string;
+    silent?: boolean;
+    fork?: boolean;
+    sleep?: ((restarts: number) => number) | number | number[];
+    maxRestarts?: number;
+    kill?: number | false;
+
+    stdout?: Writable;
+    stderr?: Writable;
+};
+
+class Monitor extends EventEmitter implements ChildEndpoint {
+    id?: number = undefined; // For respawn-group
+
+    status: STATUS = STATUS.STOPPED;
+    command: string[];
+    name?: string;
+    cwd: string;
+    env: NodeJS.ProcessEnv;
+    uid?: number;
+    gid?: number;
+    pid?: number = 0;
+    stdio?: StdioOptions;
+    stdout?: Writable;
+    stderr?: Writable;
+    silent: boolean;
+    windowsVerbatimArguments?: boolean;
+    crashes: number = 0;
+    crashed: boolean = false;
+    fork: boolean;
+
+    sleep: (restarts: number) => number;
+    maxRestarts: number;
+    kill: number;
+
+    child?: ChildProcess = undefined;
+    started?: Date = undefined;
+    timeout?: NodeJS.Timeout = undefined;
+
+    constructor(command: string[], opts: MonitorOptions = {}) {
         super();
 
-        this.id = null; // For respawn-group
-
-        this.status = "stopped";
         this.command = command;
         this.name = opts.name;
         this.cwd = opts.cwd || ".";
         this.env = opts.env || {};
-        this.data = opts.data || {};
         this.uid = opts.uid;
         this.gid = opts.gid;
-        this.pid = 0;
-        this.crashes = 0;
         this.stdio = opts.stdio;
         this.stdout = opts.stdout;
         this.stderr = opts.stderr;
-        this.silent = opts.silent;
+        this.silent = opts.silent || false;
         this.windowsVerbatimArguments = opts.windowsVerbatimArguments;
-        this.spawnFn = opts.fork ? fork : spawn;
+        this.fork = !!opts.fork;
 
-        this.crashed = false;
         this.sleep = typeof opts.sleep === "function" ? opts.sleep : defaultSleep(opts.sleep);
         this.maxRestarts = opts.maxRestarts === 0 ? 0 : opts.maxRestarts || -1;
-        this.kill = opts.kill === false ? false : opts.kill || 30000;
-
-        this.child = null;
-        this.started = null;
-        this.timeout = null;
+        this.kill = opts.kill === false ? 0 : opts.kill || 30000;
     }
 
-    stop(cb) {
-        if (this.status === "stopped" || this.status === "stopping") return cb && cb();
-        this.status = "stopping";
+    stop(cb: () => void) {
+        if (this.status === STATUS.STOPPED || this.status === STATUS.STOPPING) return cb && cb();
+        this.status = STATUS.STOPPING;
 
-        clearTimeout(this.timeout);
+        if (this.timeout) clearTimeout(this.timeout);
 
         if (cb) {
             if (this.child) this.child.on("exit", cb);
@@ -93,14 +132,14 @@ class Monitor extends events.EventEmitter {
         if (!this.child) return this._stopped();
 
         const sigkill = () => {
-            kill(this.child.pid, "SIGKILL");
+            if (this.child) kill(this.child.pid, "SIGKILL");
             this.emit("force-kill");
         };
 
-        let wait;
+        let wait: NodeJS.Timeout;
         const onexit = () => clearTimeout(wait);
 
-        if (this.kill !== false) {
+        if (this.kill !== 0) {
             wait = setTimeout(sigkill, this.kill);
             this.child.on("exit", onexit);
         }
@@ -109,25 +148,33 @@ class Monitor extends events.EventEmitter {
     }
 
     restart() {
-        if (this.status === "running") return this;
+        if (this.status === STATUS.RUNNING) return this;
 
         let restarts = 0;
         let clock = 60000;
 
         const loop = () => {
-            const cmd = typeof this.command === "function" ? this.command() : this.command;
-            const child = this.spawnFn(cmd[0], cmd.slice(1), {
-                cwd: this.cwd,
-                env: { ...process.env, ...this.env },
-                uid: this.uid,
-                gid: this.gid,
-                stdio: this.stdio,
-                silent: this.silent,
-                windowsVerbatimArguments: this.windowsVerbatimArguments,
-            });
+            const child = this.fork
+                ? fork(this.command[0], this.command.slice(1), {
+                    cwd: this.cwd,
+                    env: { ...process.env, ...this.env },
+                    uid: this.uid,
+                    gid: this.gid,
+                    stdio: this.stdio,
+                    silent: this.silent,
+                    windowsVerbatimArguments: this.windowsVerbatimArguments,
+                })
+                : spawn(this.command[0], this.command.slice(1), {
+                    cwd: this.cwd,
+                    env: { ...process.env, ...this.env },
+                    uid: this.uid,
+                    gid: this.gid,
+                    stdio: this.stdio,
+                    windowsVerbatimArguments: this.windowsVerbatimArguments,
+                });
 
             this.started = new Date();
-            this.status = "running";
+            this.status = STATUS.RUNNING;
             this.child = child;
             this.pid = child.pid;
             this.emit("spawn", child);
@@ -160,7 +207,7 @@ class Monitor extends events.EventEmitter {
 
             const clear = () => {
                 if (this.child !== child) return false;
-                this.child = null;
+                this.child = undefined;
                 this.pid = 0;
                 return true;
             };
@@ -168,14 +215,14 @@ class Monitor extends events.EventEmitter {
             child.on("error", err => {
                 this.emit("warn", err); // Too opionated? maybe just forward err
                 if (!clear()) return;
-                if (this.status === "stopping") return this._stopped();
+                if (this.status === STATUS.STOPPING) return this._stopped();
                 this._crash();
             });
 
             child.on("exit", (code, signal) => {
                 this.emit("exit", code, signal);
                 if (!clear()) return;
-                if (this.status === "stopping") return this._stopped();
+                if (this.status === STATUS.STOPPING) return this._stopped();
 
                 clock -= Date.now() - (this.started ? this.started.getTime() : 0);
 
@@ -186,7 +233,7 @@ class Monitor extends events.EventEmitter {
 
                 if (++restarts > this.maxRestarts && this.maxRestarts !== -1) return this._crash();
 
-                this.status = "sleeping";
+                this.status = STATUS.SLEEPING;
                 this.emit("sleep");
 
                 const restartTimeout = this.sleep(restarts);
@@ -194,15 +241,14 @@ class Monitor extends events.EventEmitter {
             });
         };
 
-        clearTimeout(this.timeout);
+        if (this.timeout) clearTimeout(this.timeout);
         loop();
-
-        if (this.status === "running") this.emit("start");
+        this.emit("start");
 
         return this;
     }
 
-    send(data) {
+    send(data: Serializable) {
         if (!this.child) return;
         this.child.send(data);
     }
@@ -218,43 +264,40 @@ class Monitor extends events.EventEmitter {
             command: this.command,
             cwd: this.cwd,
             env: this.env,
-            data: this.data,
         };
 
         if (!doc.id) delete doc.id;
         if (!doc.pid) delete doc.pid;
         if (!doc.name) delete doc.name;
-        if (!doc.data) delete doc.data;
         if (!doc.started) delete doc.started;
 
         return doc;
     }
 
     _crash() {
-        if (this.status !== "running") return;
-        this.status = "crashed";
+        if (this.status !== STATUS.RUNNING) return;
+        this.status = STATUS.CRASHED;
         this.crashes++;
         this.emit("crash");
-        if (this.status === "crashed") this._stopped();
+        this._stopped();
     }
 
     _stopped() {
-        if (this.status === "stopped") return;
-        if (this.status !== "crashed") this.status = "stopped";
-        this.started = null;
+        if (this.status === STATUS.STOPPED) return;
+        if (this.status !== STATUS.CRASHED) this.status = STATUS.STOPPED;
+        this.started = undefined;
         this.emit("stop");
     }
 }
 
-/**
- * @param {string[]|string} command
- * @param {{}} opts
- * @returns {Monitor}
- */
-function respawn(command, opts) {
-    if (typeof command === "object" && !Array.isArray(command)) return respawn(command.command, command);
-    if (!Array.isArray(command)) command = [command];
-    return new Monitor(command, opts || {});
-}
+export default function respawn(command: string[] | string, opts: MonitorOptions): Monitor;
+export default function respawn(opts: MonitorOptions & { command: string[] }): Monitor;
 
-module.exports.default = respawn;
+export default function respawn(
+    command: string[] | string
+    | (MonitorOptions & { command: string[] }),
+    opts?: MonitorOptions
+): Monitor {
+    if (typeof command === "object" && !Array.isArray(command)) return respawn(command.command, command);
+    return new Monitor(Array.isArray(command) ? command : [command], opts || {});
+}
