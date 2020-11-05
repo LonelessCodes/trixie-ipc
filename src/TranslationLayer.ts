@@ -19,8 +19,8 @@ import { AwaitAnswerOptions } from "./util";
 
 export default abstract class TranslationLayer extends EventEmitter {
     public abstract send(bus: string, payload: unknown): void;
-    public abstract answer(bus: string, handler: (payload: unknown) => (Promise<any> | any)): this;
-    public abstract awaitAnswer(bus: string, payload: unknown, opts?: AwaitAnswerOptions): Promise<unknown>;
+    public abstract answer<T = any>(bus: string, handler: (payload: T) => (Promise<any> | any)): this;
+    public abstract awaitAnswer<T = any>(bus: string, payload: unknown, opts?: AwaitAnswerOptions): Promise<T>;
 
     destroy(): void {
         this.removeAllListeners();

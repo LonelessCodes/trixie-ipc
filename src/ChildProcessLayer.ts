@@ -42,7 +42,7 @@ export default class ChildProcessLayer extends TranslationLayer {
         this.child.send({ bus, type: MSG_TYPE.RAW, payload });
     }
 
-    answer(bus_wanted: string, handler: (payload: unknown) => (Promise<any> | any)): this {
+    answer<T = any>(bus_wanted: string, handler: (payload: T) => (Promise<any> | any)): this {
         this.child.on("message", async ({ bus: bus_gotten, id, payload }: ChildProcessRawMessage) => {
             if (bus_wanted !== bus_gotten) return;
 
@@ -66,8 +66,8 @@ export default class ChildProcessLayer extends TranslationLayer {
         return this;
     }
 
-    awaitAnswer(bus_request: string, payload_request?: unknown, opts: AwaitAnswerOptions = {}): Promise<unknown> {
-        const p = new Promise((resolve, reject) => {
+    awaitAnswer<T = any>(bus_request: string, payload_request?: unknown, opts: AwaitAnswerOptions = {}): Promise<T> {
+        const p: Promise<T> = new Promise((resolve, reject) => {
             const idRequest = uuid.v1();
 
             const removeHandlers = () => {
